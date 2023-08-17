@@ -11,31 +11,94 @@ using System.Diagnostics;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Reflection;
+using Microsoft.Win32;
+using System.Globalization;
 
 namespace Test1
 {
     public partial class Form1 : Form
     {
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+        //InputLanguage currentInputLanguage = InputLanguage.CurrentInputLanguage;
+
+        C_Process process_Rufus = new C_Process(@"\\manager\Downloads\Install\Rufus 2.11\rufus-2.11p.exe");
+        C_Process process_Steam = new C_Process(@"C:\Program Files (x86)\Steam\steam.exe");
+        C_Process process_Chrome = new C_Process(@"C:\Program Files\Google\Chrome\Application\chrome.exe");
+        C_Process process_win_r = new C_Process(@"C:\Users\river\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\System Tools\Run...");
+        C_Process process_visual = new C_Process(@"E:\VS\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\devenv.exe");
+
+        public const int MOD_ALT = 0x1;
+        public const int MOD_CONTROL = 0x2;
+        public const int MOD_SHIFT = 0x4;
+        public const int MOD_WIN = 0x8;
+        public const int WM_HOTKEY = 0x312;
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_HOTKEY)
+            {
+                textBox1.Text += DateTime.Now.ToString() + ". Hotkey pressed, ID = 0x" + m.WParam.ToString("X");
+                textBox1.Text += Environment.NewLine;
+
+
+                if (m.WParam.ToString("X") == "1")
+                    process_Rufus.Run();
+                else if (m.WParam.ToString("X") == "2")
+                    process_Steam.Run();
+                else if (m.WParam.ToString("X") == "3")
+                    process_Chrome.Run();
+                else if (m.WParam.ToString("X") == "4")
+                {
+                    process_win_r.Run();
+                    Thread.Sleep(100);
+                    SendKeys.SendWait("\\\\manager\\Downloads{ENTER}");
+                }
+                else if (m.WParam.ToString("X") == "5")
+                    process_visual.Run();
+                else if (m.WParam.ToString("X") == "6")
+                {
+
+                }
+
+                m.Result = (IntPtr)0;
+                return;
+            }
+
+            base.WndProc(ref m);
+        }
+
         public Form1()
         {
             InitializeComponent();
             InitializeTrayIcon();
-            //backgroundWorker.DoWork += backgroundWorker_DoWork;
+
+            bool res;
+
+            res = RegisterHotKey(this.Handle, 1, MOD_ALT, (uint)Keys.R);
+            if (res == false) MessageBox.Show("RegisterHotKey failed");
+            res = RegisterHotKey(this.Handle, 2, MOD_ALT, (uint)Keys.S);//регистрируем горячую клавишу
+            if (res == false) MessageBox.Show("RegisterHotKey failed");
+            res = RegisterHotKey(this.Handle, 3, MOD_ALT, (uint)Keys.C);
+            if (res == false) MessageBox.Show("RegisterHotKey failed");
+            res = RegisterHotKey(this.Handle, 4, MOD_WIN, (uint)Keys.F2);
+            if (res == false) MessageBox.Show("RegisterHotKey failed");
+            res = RegisterHotKey(this.Handle, 5, MOD_ALT, (uint)Keys.V);
+            if (res == false) MessageBox.Show("RegisterHotKey failed");
+            res = RegisterHotKey(this.Handle, 6, MOD_ALT, (uint)Keys.Space);
+            if (res == false) MessageBox.Show("RegisterHotKey failed");
+
         }
-
-        //BackgroundWorker backgroundWorker = new BackgroundWorker();
-
-        private bool ctrlPressed = false;
-        private bool shiftPressed = false;
 
         private void InitializeTrayIcon()
         {
             notifyIcon = new NotifyIcon();
             notifyIcon.Icon = Properties.Resources.Test_icon1; // Замініть на власну піктограму
-            notifyIcon.Text = "Test_1";
+            notifyIcon.Text = "FastTask";
             notifyIcon.Visible = true;
-            //notifyIcon.BalloonTipTitle = "Test_1";
-            //notifyIcon.BalloonTipTitle = "Згорнуто";
 
             // Додайте можливість показу контекстного меню при правому кліку
             ContextMenu contextMenu = new ContextMenu();
@@ -48,31 +111,25 @@ namespace Test1
             contextMenu.MenuItems.Add(exitMenuItem);
 
             notifyIcon.ContextMenu = contextMenu;
-
-            // Приховати форму після запуску
-            //this.WindowState = FormWindowState.Minimized;
-            //this.ShowInTaskbar = false;
         }
 
         public void Win_Show()
         {
-            Show();
-            ShowInTaskbar = true;
+            //Show();
+            WindowState = FormWindowState.Normal;
         }
         public void Win_Hide()
         {
-            Hide();
-            ShowInTaskbar = false;
+            //Hide();
+            WindowState = FormWindowState.Minimized;
         }
 
         private void OpenMenuItem_Click(object sender, EventArgs e)
         {
-            // Відобразити форму при виборі "Відкрити" з контекстного меню
             Win_Show();
         }
         private void ExitMenuItem_Click(object sender, EventArgs e)
         {
-            // Закрити програму при виборі "Вийти" з контекстного меню
             notifyIcon.Dispose();
             Application.Exit();
         }
@@ -86,112 +143,43 @@ namespace Test1
                 Win_Hide();
             }
         }
-        private void notifyIcon_MouseClick(object sender, MouseEventArgs e)
-        {
-            Win_Show();
-        }
-
-
-
-        C_Process process_Rufus = new C_Process(@"\\manager\Downloads\Install\Rufus 2.11\rufus-2.11p.exe");
-        C_Process process_Steam = new C_Process(@"C:\Program Files (x86)\Steam\steam.exe");
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            Win_Hide();
             this.KeyPreview = true;
-            //backgroundWorker.RunWorkerAsync();
-
-            
+            SetAutoRunValue(true, Assembly.GetExecutingAssembly().Location);
+            //ShowInTaskbar = false;!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         }
-        private void button1_Click(object sender, EventArgs e)
+
+        private bool SetAutoRunValue(bool autorun, string path)
         {
-            process_Rufus.Run();
+            const string name = "FastTask";
+
+            string ExePath = path;
+
+            RegistryKey reg;
+
+            reg = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run\");
+
+            try
+            {
+                if (autorun)
+                {
+                    reg.SetValue(name, ExePath);
+                }
+                else { reg.DeleteValue(name); }
+
+                reg.Flush();
+
+                reg.Close();
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+
+            return true;
         }
-        private void button2_Click(object sender, EventArgs e)
-        {
-            process_Steam.Run();
-        }
-        private void button3_Click(object sender, EventArgs e)
-        {
-            
-        }
-
-        private void Form1_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.ControlKey)
-            {
-                ctrlPressed = true;
-            }
-            else if (e.KeyCode == Keys.ShiftKey)
-            {
-                shiftPressed = true;
-            }
-
-
-            else if (ctrlPressed && shiftPressed && e.KeyCode == Keys.R)
-            {
-                button1_Click(null, EventArgs.Empty);
-            }
-            else if (ctrlPressed && shiftPressed && e.KeyCode == Keys.S)
-            {
-                button2_Click(null, EventArgs.Empty);
-            }
-        }
-        private void Form1_KeyUp(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.ControlKey)
-            {
-                ctrlPressed = false;
-            }
-            else if (e.KeyCode == Keys.ShiftKey)
-            {
-                shiftPressed = false;
-            }
-        }
-
-
-
-        //private void backgroundWorker_DoWork(object sender, DoWorkEventArgs e)
-        //{
-        //    while (true)
-        //    {
-        //        if (ctrlPressed && shiftPressed)
-        //        {
-        //            if (IsKeyCombinationPressed(Keys.R))
-        //            {
-        //                // Викликати метод для запуску процесу в фоновому режимі
-        //                process_Rufus.Run();
-        //            }
-        //            else if (IsKeyCombinationPressed(Keys.S))
-        //            {
-        //                // Викликати метод для запуску процесу в фоновому режимі
-        //                process_Steam.Run();
-        //            }
-        //        }
-
-        //        // Затримка, щоб не завантажувати процесор швидким циклом перевірок
-        //        Thread.Sleep(100);
-        //    }
-        //}
-
-
-        //private bool IsKeyCombinationPressed(Keys key)
-        //{
-        //    return Keyboard.IsKeyDown(key); // Перевірка, чи клавіша натиснута
-        //}
-
-        //public static class Keyboard
-        //{
-        //    [DllImport("user32.dll")]
-        //    private static extern short GetKeyState(int key);
-
-        //    public static bool IsKeyDown(Keys key)
-        //    {
-        //        return (GetKeyState((int)key) & 0x8000) != 0; // Бітова маска для перевірки стану клавіші
-        //    }
-        //}
-
-
-
     }
 }
