@@ -14,6 +14,7 @@ using System.Threading;
 using System.Reflection;
 using Microsoft.Win32;
 using System.Globalization;
+using WindowsInput;
 
 namespace Test1
 {
@@ -24,6 +25,7 @@ namespace Test1
         public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
         //InputLanguage currentInputLanguage = InputLanguage.CurrentInputLanguage;
+        InputSimulator simulator = new InputSimulator();
 
         C_Process process_Rufus = new C_Process(@"\\manager\Downloads\Install\Rufus 2.11\rufus-2.11p.exe");
         C_Process process_Steam = new C_Process(@"C:\Program Files (x86)\Steam\steam.exe");
@@ -48,7 +50,12 @@ namespace Test1
                 if (m.WParam.ToString("X") == "1")
                     process_Rufus.Run();
                 else if (m.WParam.ToString("X") == "2")
+                {
                     process_Steam.Run();
+                    Cursor.Position = new Point(870, 550);
+                    //Thread.Sleep(5000);
+                    //simulator.Mouse.LeftButtonClick();
+                }
                 else if (m.WParam.ToString("X") == "3")
                     process_Chrome.Run();
                 else if (m.WParam.ToString("X") == "4")
